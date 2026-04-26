@@ -233,7 +233,7 @@ metrics = {
 # Create a DataFrame for easy comparison
 metrics_df = pd.DataFrame(metrics).T
 print('Model Performance Comparison:')
-display(metrics_df.round(4))
+print(metrics_df.round(4))
 
 # Visualize Model Performance
 fig, axes = plt.subplots(2, 2, figsize=(16, 12))
