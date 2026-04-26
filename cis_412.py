@@ -266,7 +266,7 @@ features_df = pd.DataFrame({
 features_df = features_df.sort_values(by='Importance', ascending=False)
 
 print('Top 10 Feature Importances (Random Forest):')
-display(features_df.head(10))
+print(features_df.head(10))
 plt.figure(figsize=(12, 8))
 sns.barplot(x='Importance', y='Feature', data=features_df, palette='viridis', hue='Feature', legend=False)
 plt.title('Feature Importances from Random Forest Classifier', fontsize=16)
