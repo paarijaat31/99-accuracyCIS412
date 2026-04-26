@@ -121,6 +121,7 @@ X = df.drop(['Name', 'TARGET_5Yrs'], axis=1)
 y = df['TARGET_5Yrs']
 
 # Split data into training and testing sets
+X = X.fillna(X.mean())
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
 
 # Scale numerical features
