@@ -97,7 +97,8 @@ plt.show()
 
 To understand the relationships between the different features, I will visualize the correlation matrix of the cleaned dataset using a heatmap. The 'Name' column will be excluded from this analysis as it is not a numerical feature.
 """
-
+numeric_df = df.drop(columns=['Name'])
+corr_matrix = numeric_df.corr()
 target_corr = corr_matrix['TARGET_5Yrs'].drop('TARGET_5Yrs').sort_values(ascending=True)
 print('\nCorrelation of each feature with TARGET_5Yrs (sorted):')
 print(target_corr.round(3).to_string())
