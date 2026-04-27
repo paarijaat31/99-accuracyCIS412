@@ -7,208 +7,180 @@ Original file is located at
     https://colab.research.google.com/drive/1WTR4rXO30ooNahnBPlmDI1wqUASpzamG
 """
 
+import streamlit as st
 import pandas as pd
 import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import LogisticRegression
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import accuracy_score, precision_score, recall_score, roc_auc_score, classification_report
-
+from sklearn.tree import plot_tree
+ 
+st.title("NBA Rookie Longevity Prediction")
+st.markdown("**CIS 412 Team Project | CRISP-DM Framework**")
+ 
+# ── Data Loading ──────────────────────────────────────────────────────────────
+st.header("1. Data Understanding")
+ 
 df = pd.read_csv("nba_logreg (1).csv")
-print(df.head())
-
-print(f"\nData Types:\n{df.dtypes}")
-print(f"\nStatistical Summary:")
-print(df.describe().round(2))
-
-print(f"\nMissing Values:")
-print(df.isnull().sum())
-print(f"\nTotal missing: {df.isnull().sum().sum()} (all in 3P% column)")
-
-print(f'\n Duplicate rows: {df.duplicated().sum()} ')
-print(f' Duplicate player names: {df["Name"].duplicated().sum()}')
-
-import matplotlib.pyplot as plt
-
+ 
+st.subheader("Raw Data (first 5 rows)")
+st.write(df.head())
+ 
+st.subheader("Data Types")
+st.write(df.dtypes)
+ 
+st.subheader("Statistical Summary")
+st.write(df.describe().round(2))
+ 
+st.subheader("Missing Values")
+st.write(df.isnull().sum())
+st.write(f"Total missing: {df.isnull().sum().sum()} (all in 3P% column)")
+ 
+st.write(f"Duplicate rows: {df.duplicated().sum()}")
+st.write(f"Duplicate player names: {df['Name'].duplicated().sum()}")
+ 
+# Target distribution
 target_counts = df['TARGET_5Yrs'].value_counts().sort_index()
-print(f'\nTarget variable distribution:')
-print(f'  0 (did NOT last 5 yrs): {int(target_counts[0.0])}  ({target_counts[0.0]/len(df)*100:.1f}%)')
-print(f'  1 (lasted 5+ yrs):      {int(target_counts[1.0])}  ({target_counts[1.0]/len(df)*100:.1f}%)')
-
+st.subheader("Target Variable Distribution")
+st.write(f"0 (did NOT last 5 yrs): {int(target_counts[0.0])}  ({target_counts[0.0]/len(df)*100:.1f}%)")
+st.write(f"1 (lasted 5+ yrs):      {int(target_counts[1.0])}  ({target_counts[1.0]/len(df)*100:.1f}%)")
+ 
 fig, axes = plt.subplots(1, 2, figsize=(13, 5))
-
-# Bar plot for target variable distribution
-axes[0].bar(target_counts.index.astype(str), target_counts.values, color=['skyblue', 'lightcoral'])
-axes[0].set_title('Distribution of TARGET_5Yrs')
-axes[0].set_xlabel('Lasted 5+ Years (0=No, 1=Yes)')
-axes[0].set_ylabel('Number of Players')
-axes[0].set_xticks([0, 1])
-
-# Pie chart for target variable distribution
-axes[1].pie(target_counts.values, labels=['Did Not Last 5 Yrs', 'Lasted 5+ Yrs'], autopct='%1.1f%%', colors=['skyblue', 'lightcoral'])
-axes[1].set_title('Proportion of TARGET_5Yrs')
-axes[1].axis('equal') # Equal aspect ratio ensures that pie is drawn as a circle.
-
-plt.tight_layout()
-plt.show()
-
-"""### Handling Missing Values
-
-The '3P%' column has 11 missing values. I will impute these missing values with the mean of the column.
-"""
-
-df['3P%'].fillna(df['3P%'].mean(), inplace=True)
-print(f"Missing values after imputation:\n{df.isnull().sum()}")
-
-"""### Handling Duplicate Values
-
-There are 12 exact duplicate rows and 46 duplicate player names. I will remove both types of duplicates to ensure data quality. For duplicate player names, I'll keep the first entry, assuming it represents the most complete or relevant record.
-"""
-
-df.drop_duplicates(inplace=True)
-print(f"Duplicate rows after dropping: {df.duplicated().sum()}")
-
-df.drop_duplicates(subset=['Name'], keep='first', inplace=True)
-print(f'Duplicate player names after dropping: {df["Name"].duplicated().sum()}')
-print(f'Dataset shape after handling duplicates: {df.shape}')
-
 labels = ['Did NOT last\n5 years (0)', 'Lasted 5+\nyears (1)']
 colors = ['#e74c3c', '#27ae60']
-bars = axes[0].bar(labels, target_counts.values, color=colors,
-                   edgecolor='black', linewidth=0.7, width=0.55)
+bars = axes[0].bar(labels, target_counts.values, color=colors, edgecolor='black', linewidth=0.7, width=0.55)
 for bar, val in zip(bars, target_counts.values):
     axes[0].text(bar.get_x() + bar.get_width()/2, val + 12,
                  f'{int(val)}', ha='center', fontweight='bold', fontsize=12)
 axes[0].set_ylabel('Number of Players')
 axes[0].set_title('Target Variable — Count')
-
 axes[1].pie(target_counts.values, labels=labels, colors=colors,
             autopct='%1.1f%%', startangle=90, textprops={'fontsize': 11},
             wedgeprops={'edgecolor': 'black', 'linewidth': 0.7})
 axes[1].set_title('Target Variable — Proportion')
-
 plt.suptitle('Is the Dataset Balanced?', fontsize=14, fontweight='bold', y=1.02)
 plt.tight_layout()
-plt.show()
-
-"""### Correlation Matrix Visualization
-
-To understand the relationships between the different features, I will visualize the correlation matrix of the cleaned dataset using a heatmap. The 'Name' column will be excluded from this analysis as it is not a numerical feature.
-"""
+st.pyplot(fig)
+plt.clf()
+ 
+# ── Data Preparation ──────────────────────────────────────────────────────────
+st.header("2. Data Preparation")
+ 
+st.subheader("Handling Missing Values")
+st.write("The '3P%' column has 11 missing values. Imputing with column mean.")
+df['3P%'] = df['3P%'].fillna(df['3P%'].mean())
+st.write(df.isnull().sum())
+ 
+st.subheader("Handling Duplicate Values")
+df.drop_duplicates(inplace=True)
+df.drop_duplicates(subset=['Name'], keep='first', inplace=True)
+st.write(f"Duplicate rows after dropping: {df.duplicated().sum()}")
+st.write(f"Duplicate player names after dropping: {df['Name'].duplicated().sum()}")
+st.write(f"Dataset shape after cleaning: {df.shape}")
+ 
+st.subheader("Correlation Matrix Visualization")
+st.write("Visualizing the correlation matrix to understand feature relationships.")
 numeric_df = df.drop(columns=['Name'])
 corr_matrix = numeric_df.corr()
+ 
 target_corr = corr_matrix['TARGET_5Yrs'].drop('TARGET_5Yrs').sort_values(ascending=True)
-print('\nCorrelation of each feature with TARGET_5Yrs (sorted):')
-print(target_corr.round(3).to_string())
-
+st.write("Correlation of each feature with TARGET_5Yrs (sorted):")
+st.write(target_corr.round(3))
+ 
 fig, ax = plt.subplots(figsize=(10, 7))
 bar_colors = ['#27ae60' if v > 0 else '#e74c3c' for v in target_corr.values]
-target_corr.plot(kind='barh', color=bar_colors, edgecolor='black',
-                 linewidth=0.5, ax=ax)
-ax.set_title('Which Rookie Stats Correlate with Lasting 5+ Years?',
-             fontweight='bold')
+target_corr.plot(kind='barh', color=bar_colors, edgecolor='black', linewidth=0.5, ax=ax)
+ax.set_title('Which Rookie Stats Correlate with Lasting 5+ Years?', fontweight='bold')
 ax.set_xlabel('Correlation with TARGET_5Yrs')
 ax.axvline(x=0, color='black', linewidth=0.8)
 plt.tight_layout()
-plt.show()
-
-"""### Model Training and Evaluation"""
-
-# Define features (X) and target (y)
+st.pyplot(fig)
+plt.clf()
+ 
+# Heatmap
+fig, ax = plt.subplots(figsize=(14, 10))
+sns.heatmap(corr_matrix, annot=True, fmt='.2f', cmap='coolwarm', ax=ax)
+ax.set_title('Correlation Heatmap', fontsize=14)
+plt.tight_layout()
+st.pyplot(fig)
+plt.clf()
+ 
+# ── Modeling ──────────────────────────────────────────────────────────────────
+st.header("3. Modeling")
+ 
 X = df.drop(['Name', 'TARGET_5Yrs'], axis=1)
 y = df['TARGET_5Yrs']
-
-# Split data into training and testing sets
 X = X.fillna(X.mean())
+ 
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
-
-# Scale numerical features
+ 
 scaler = StandardScaler()
 X_train_scaled = scaler.fit_transform(X_train)
 X_test_scaled = scaler.transform(X_test)
-
-print("Data preparation and scaling complete.")
-
-"""#### Logistic Regression"""
-
-# Initialize and train Logistic Regression model
-log_reg = LogisticRegression(random_state=42, solver='liblinear') # 'liblinear' is good for small datasets
+ 
+st.write("Data preparation and scaling complete.")
+ 
+# Logistic Regression
+st.subheader("Logistic Regression")
+log_reg = LogisticRegression(random_state=42, solver='liblinear')
 log_reg.fit(X_train_scaled, y_train)
-
-# Make predictions
 y_pred_lr = log_reg.predict(X_test_scaled)
 y_prob_lr = log_reg.predict_proba(X_test_scaled)[:, 1]
-
-# Evaluate the model
-print("Logistic Regression Performance:")
-print(f"Accuracy: {accuracy_score(y_test, y_pred_lr):.4f}")
-print(f"Precision: {precision_score(y_test, y_pred_lr):.4f}")
-print(f"Recall: {recall_score(y_test, y_pred_lr):.4f}")
-print(f"ROC AUC: {roc_auc_score(y_test, y_prob_lr):.4f}")
-print("\nClassification Report:")
-print(classification_report(y_test, y_pred_lr))
-
-"""#### Random Forest Classifier"""
-
-# Initialize and train Random Forest Classifier model
+y_train_pred_lr = log_reg.predict(X_train_scaled)
+ 
+st.write(f"**Train Accuracy:** {accuracy_score(y_train, y_train_pred_lr):.4f}")
+st.write(f"**Test Accuracy:** {accuracy_score(y_test, y_pred_lr):.4f}")
+st.write(f"**Precision:** {precision_score(y_test, y_pred_lr):.4f}")
+st.write(f"**Recall:** {recall_score(y_test, y_pred_lr):.4f}")
+st.write(f"**ROC AUC:** {roc_auc_score(y_test, y_prob_lr):.4f}")
+st.text("Classification Report:\n" + classification_report(y_test, y_pred_lr))
+ 
+# Random Forest
+st.subheader("Random Forest Classifier")
 rand_forest = RandomForestClassifier(random_state=42)
-rand_forest.fit(X_train, y_train) # Use unscaled data for tree-based models
-
-# Make predictions
+rand_forest.fit(X_train, y_train)
 y_pred_rf = rand_forest.predict(X_test)
 y_prob_rf = rand_forest.predict_proba(X_test)[:, 1]
-
-# Evaluate the model
-print("Random Forest Classifier Performance:")
-print(f"Accuracy: {accuracy_score(y_test, y_pred_rf):.4f}")
-print(f"Precision: {precision_score(y_test, y_pred_rf):.4f}")
-print(f"Recall: {recall_score(y_test, y_pred_rf):.4f}")
-print(f"ROC AUC: {roc_auc_score(y_test, y_prob_rf):.4f}")
-print("\nClassification Report:")
-print(classification_report(y_test, y_pred_rf))
-
-"""#### Decision Tree Classifier"""
-
-# Initialize and train Decision Tree Classifier model
+y_train_pred_rf = rand_forest.predict(X_train)
+ 
+st.write(f"**Train Accuracy:** {accuracy_score(y_train, y_train_pred_rf):.4f}")
+st.write(f"**Test Accuracy:** {accuracy_score(y_test, y_pred_rf):.4f}")
+st.write(f"**Precision:** {precision_score(y_test, y_pred_rf):.4f}")
+st.write(f"**Recall:** {recall_score(y_test, y_pred_rf):.4f}")
+st.write(f"**ROC AUC:** {roc_auc_score(y_test, y_prob_rf):.4f}")
+st.text("Classification Report:\n" + classification_report(y_test, y_pred_rf))
+ 
+# Decision Tree
+st.subheader("Decision Tree Classifier")
 dec_tree = DecisionTreeClassifier(random_state=42)
-dec_tree.fit(X_train, y_train) # Use unscaled data for tree-based models
-
-# Make predictions
+dec_tree.fit(X_train, y_train)
 y_pred_dt = dec_tree.predict(X_test)
 y_prob_dt = dec_tree.predict_proba(X_test)[:, 1]
-
-# Evaluate the model
-print("Decision Tree Classifier Performance:")
-print(f"Accuracy: {accuracy_score(y_test, y_pred_dt):.4f}")
-print(f"Precision: {precision_score(y_test, y_pred_dt):.4f}")
-print(f"Recall: {recall_score(y_test, y_pred_dt):.4f}")
-print(f"ROC AUC: {roc_auc_score(y_test, y_prob_dt):.4f}")
-print("\nClassification Report:")
-print(classification_report(y_test, y_pred_dt))
-
-"""### Visualizing the Decision Tree"""
-
-import matplotlib.pyplot as plt
-from sklearn.tree import plot_tree
-
-plt.figure(figsize=(30, 20)) # Adjust figsize for better visibility of a larger tree
-plot_tree(dec_tree, filled=True, feature_names=X.columns, class_names=['< 5 Years', '5+ Years'])
-plt.title('Decision Tree Visualization (Full Tree)', fontsize=20)
-plt.show()
-
-"""The visualization of the Decision Tree, limited to a `max_depth` of 3 for readability, shows the decision rules it has learned. To inspect for overfitting, we would typically look for a very deep tree with many nodes that make decisions based on very specific, perhaps noisy, training data. A very complex tree with high depth can indicate that the model has learned the training data too well, including its noise, and might not generalize well to unseen data. Since the current tree shows only the first few layers, if the full tree (without `max_depth` limit) were excessively deep and bushy, it would suggest overfitting.
-
-### Model Comparison
-"""
-
-from sklearn.metrics import accuracy_score, precision_score, recall_score, roc_auc_score
-import pandas as pd
-import matplotlib.pyplot as plt
-import seaborn as sns
-
-# Collect metrics for each model
+y_train_pred_dt = dec_tree.predict(X_train)
+ 
+st.write(f"**Train Accuracy:** {accuracy_score(y_train, y_train_pred_dt):.4f}")
+st.write(f"**Test Accuracy:** {accuracy_score(y_test, y_pred_dt):.4f}")
+st.write(f"**Precision:** {precision_score(y_test, y_pred_dt):.4f}")
+st.write(f"**Recall:** {recall_score(y_test, y_pred_dt):.4f}")
+st.write(f"**ROC AUC:** {roc_auc_score(y_test, y_prob_dt):.4f}")
+st.text("Classification Report:\n" + classification_report(y_test, y_pred_dt))
+ 
+st.subheader("Decision Tree Visualization")
+fig, ax = plt.subplots(figsize=(30, 20))
+plot_tree(dec_tree, filled=True, feature_names=X.columns, class_names=['< 5 Years', '5+ Years'], ax=ax)
+ax.set_title('Decision Tree Visualization (Full Tree)', fontsize=20)
+st.pyplot(fig)
+plt.clf()
+ 
+# ── Evaluation ────────────────────────────────────────────────────────────────
+st.header("4. Evaluation")
+ 
+st.subheader("Model Performance Comparison")
 metrics = {
     'Logistic Regression': {
         'Accuracy': accuracy_score(y_test, y_pred_lr),
@@ -229,19 +201,15 @@ metrics = {
         'ROC AUC': roc_auc_score(y_test, y_prob_dt)
     }
 }
-
-# Create a DataFrame for easy comparison
+ 
 metrics_df = pd.DataFrame(metrics).T
-print('Model Performance Comparison:')
-print(metrics_df.round(4))
-
-# Visualize Model Performance
+st.write(metrics_df.round(4))
+ 
 fig, axes = plt.subplots(2, 2, figsize=(16, 12))
 axes = axes.flatten()
-
 metric_names = ['Accuracy', 'Precision', 'Recall', 'ROC AUC']
-colors = sns.color_palette('viridis', n_colors=len(metrics_df.columns))
-
+colors = sns.color_palette('viridis', n_colors=3)
+ 
 for i, metric in enumerate(metric_names):
     metrics_df[metric].plot(kind='bar', ax=axes[i], color=colors, edgecolor='black')
     axes[i].set_title(f'{metric} Comparison', fontsize=14)
@@ -249,32 +217,53 @@ for i, metric in enumerate(metric_names):
     axes[i].tick_params(axis='x', rotation=45)
     axes[i].grid(axis='y', linestyle='--', alpha=0.7)
     for p in axes[i].patches:
-        axes[i].annotate(f'{p.get_height():.3f}', (p.get_x() + p.get_width() / 2., p.get_height()),
-                        ha='center', va='center', xytext=(0, 10), textcoords='offset points')
-
+        axes[i].annotate(f'{p.get_height():.3f}',
+                         (p.get_x() + p.get_width() / 2., p.get_height()),
+                         ha='center', va='center', xytext=(0, 10), textcoords='offset points')
+ 
 plt.suptitle('Comparison of Classification Model Performance', fontsize=18, y=1.02)
 plt.tight_layout(rect=[0, 0.03, 1, 0.98])
-plt.show()
-
-"""### Feature Importance (Random Forest)"""
-
+st.pyplot(fig)
+plt.clf()
+ 
+st.subheader("Overfitting Analysis")
+st.write("Decision Tree: Train accuracy is near 1.0 vs test ~0.63 — clear overfitting.")
+st.write("Logistic Regression: Minimal gap between train and test — generalizes well.")
+st.write("Random Forest: Slight overfit but much better than raw Decision Tree.")
+ 
+st.subheader("Feature Importance (Random Forest)")
 feature_importances = rand_forest.feature_importances_
-features_df = pd.DataFrame({
-    'Feature': X.columns,
-    'Importance': feature_importances
-})
+features_df = pd.DataFrame({'Feature': X.columns, 'Importance': feature_importances})
 features_df = features_df.sort_values(by='Importance', ascending=False)
-
-print('Top 10 Feature Importances (Random Forest):')
-print(features_df.head(10))
-plt.figure(figsize=(12, 8))
-sns.barplot(x='Importance', y='Feature', data=features_df, palette='viridis', hue='Feature', legend=False)
-plt.title('Feature Importances from Random Forest Classifier', fontsize=16)
-plt.xlabel('Importance', fontsize=12)
-plt.ylabel('Feature', fontsize=12)
+st.write(features_df.head(10))
+ 
+fig, ax = plt.subplots(figsize=(12, 8))
+sns.barplot(x='Importance', y='Feature', data=features_df, palette='viridis',
+            hue='Feature', legend=False, ax=ax)
+ax.set_title('Feature Importances from Random Forest Classifier', fontsize=16)
+ax.set_xlabel('Importance', fontsize=12)
+ax.set_ylabel('Feature', fontsize=12)
 plt.tight_layout()
-plt.show()
-
-print(f"Logistic Regression Accuracy: {accuracy_score(y_test, y_pred_lr):.4f}")
-print(f"Decision Tree Accuracy:       {accuracy_score(y_test, y_pred_dt):.4f}")
-print(f"Random Forest Accuracy:       {accuracy_score(y_test, y_pred_rf):.4f}")
+st.pyplot(fig)
+plt.clf()
+ 
+# ── Deployment ────────────────────────────────────────────────────────────────
+st.header("5. Deployment")
+st.write("""
+**How the model will be deployed:**
+- Logistic Regression is the best performing model (highest accuracy + ROC AUC).
+- It can be deployed as a scouting tool for NBA front offices to evaluate rookies after their first season.
+- Input: rookie season stats. Output: probability of lasting 5+ years in the league.
+ 
+**Ethical Considerations:**
+- The model should not be the sole decision-maker — human judgment must remain central.
+- Historical bias in the data (e.g., era differences) may affect predictions for modern players.
+- Players from underrepresented backgrounds should not be disadvantaged by biased training data.
+ 
+**Risks & Mitigation:**
+- Overfitting risk (especially Decision Tree) — mitigated by using Logistic Regression as primary model.
+- Data drift over time — model should be retrained periodically with new seasons of data.
+- Small dataset (~1300 players) — predictions may be less reliable for edge-case players.
+""")
+ 
+st.success("App complete. Built for CIS 412 Team Project Phase 2.")
