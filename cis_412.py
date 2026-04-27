@@ -266,4 +266,3 @@ st.write("""
 - Small dataset (~1300 players) — predictions may be less reliable for edge-case players.
 """)
  
-st.success("App complete. Built for CIS 412 Team Project Phase 2.")
