@@ -249,10 +249,11 @@ plt.clf()
  
 # ── Deployment ────────────────────────────────────────────────────────────────
 st.header("5. Deployment")
+ 
 st.write("""
 **How the model will be deployed:**
 - Logistic Regression is the best performing model (highest accuracy + ROC AUC).
-- It can be deployed as a scouting tool for NBA front offices to evaluate rookies after their first season.
+- Deployed as a scouting tool for NBA front offices to evaluate rookies after their first season.
 - Input: rookie season stats. Output: probability of lasting 5+ years in the league.
  
 **Ethical Considerations:**
@@ -265,4 +266,67 @@ st.write("""
 - Data drift over time — model should be retrained periodically with new seasons of data.
 - Small dataset (~1300 players) — predictions may be less reliable for edge-case players.
 """)
+ 
+# ── Interactive Prediction Form ───────────────────────────────────────────────
+st.subheader("Try It: Predict a Rookie's Career Longevity")
+st.write("Enter a rookie's first-season stats below and the model will predict whether they will last 5+ years in the NBA.")
+ 
+col1, col2, col3 = st.columns(3)
+ 
+with col1:
+    gp   = st.number_input("GP (Games Played)",        min_value=0.0, max_value=82.0,  value=50.0, step=1.0)
+    min_ = st.number_input("MIN (Minutes/Game)",        min_value=0.0, max_value=48.0,  value=20.0, step=0.1)
+    pts  = st.number_input("PTS (Points/Game)",         min_value=0.0, max_value=40.0,  value=10.0, step=0.1)
+    fgm  = st.number_input("FGM (Field Goals Made)",    min_value=0.0, max_value=15.0,  value=4.0,  step=0.1)
+    fga  = st.number_input("FGA (Field Goals Attempted)",min_value=0.0, max_value=25.0, value=9.0,  step=0.1)
+    fg_pct = st.number_input("FG% (Field Goal %)",      min_value=0.0, max_value=100.0, value=44.0, step=0.1)
+    p3m  = st.number_input("3P Made",                   min_value=0.0, max_value=5.0,   value=0.3,  step=0.1)
+ 
+with col2:
+    p3a  = st.number_input("3PA (3-Point Attempts)",    min_value=0.0, max_value=10.0,  value=1.0,  step=0.1)
+    p3_pct = st.number_input("3P% (3-Point %)",         min_value=0.0, max_value=100.0, value=25.0, step=0.1)
+    ftm  = st.number_input("FTM (Free Throws Made)",    min_value=0.0, max_value=10.0,  value=1.5,  step=0.1)
+    fta  = st.number_input("FTA (Free Throws Attempted)",min_value=0.0, max_value=12.0, value=2.0,  step=0.1)
+    ft_pct = st.number_input("FT% (Free Throw %)",      min_value=0.0, max_value=100.0, value=72.0, step=0.1)
+    oreb = st.number_input("OREB (Offensive Rebounds)", min_value=0.0, max_value=5.0,   value=0.8,  step=0.1)
+ 
+with col3:
+    dreb = st.number_input("DREB (Defensive Rebounds)", min_value=0.0, max_value=10.0,  value=2.0,  step=0.1)
+    reb  = st.number_input("REB (Total Rebounds)",      min_value=0.0, max_value=15.0,  value=2.8,  step=0.1)
+    ast  = st.number_input("AST (Assists)",             min_value=0.0, max_value=12.0,  value=1.5,  step=0.1)
+    stl  = st.number_input("STL (Steals)",              min_value=0.0, max_value=4.0,   value=0.5,  step=0.1)
+    blk  = st.number_input("BLK (Blocks)",              min_value=0.0, max_value=4.0,   value=0.3,  step=0.1)
+    tov  = st.number_input("TOV (Turnovers)",           min_value=0.0, max_value=6.0,   value=1.0,  step=0.1)
+ 
+if st.button("Predict Career Longevity"):
+    input_data = pd.DataFrame([[gp, min_, pts, fgm, fga, fg_pct, p3m, p3a, p3_pct,
+                                  ftm, fta, ft_pct, oreb, dreb, reb, ast, stl, blk, tov]],
+                               columns=X.columns)
+    input_scaled = scaler.transform(input_data)
+    prediction = log_reg.predict(input_scaled)[0]
+    probability = log_reg.predict_proba(input_scaled)[0][1]
+ 
+    st.markdown("---")
+    if prediction == 1:
+        st.success(f"Prediction: This rookie is LIKELY to last 5+ years in the NBA")
+    else:
+        st.error(f"Prediction: This rookie is UNLIKELY to last 5+ years in the NBA")
+ 
+    st.metric(label="Probability of lasting 5+ years", value=f"{probability*100:.1f}%")
+ 
+    prob_df = pd.DataFrame({
+        'Outcome': ['Will NOT last 5 years', 'Will last 5+ years'],
+        'Probability': [(1 - probability) * 100, probability * 100]
+    })
+    fig, ax = plt.subplots(figsize=(6, 3))
+    colors = ['#e74c3c', '#27ae60']
+    ax.barh(prob_df['Outcome'], prob_df['Probability'], color=colors, edgecolor='black')
+    ax.set_xlabel('Probability (%)')
+    ax.set_title('Prediction Confidence')
+    ax.set_xlim(0, 100)
+    for i, v in enumerate(prob_df['Probability']):
+        ax.text(v + 1, i, f'{v:.1f}%', va='center', fontweight='bold')
+    plt.tight_layout()
+    st.pyplot(fig)
+    plt.clf()
  
